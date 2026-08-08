@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MD Lite</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body class="mac-app">
+  <!-- Translucent Title Bar (40px) -->
+  <header class="titlebar" id="titlebar">
+    <div class="window-spacer"></div>
+
+    <div class="document-info" id="document-info">
+      <span class="doc-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </span>
+      <span class="doc-name" id="doc-name">Untitled.md</span>
+      <span class="doc-badge" id="doc-badge" style="display: none;">Edited</span>
+    </div>
+
+    <div class="titlebar-actions">
+      <!-- Quick Action Buttons -->
+      <div class="btn-group">
+        <button class="icon-btn" id="btn-new" title="New Document (Cmd+N)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-open" title="Open File (Cmd+O)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-save" title="Save File (Cmd+S)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-export" title="Export to HTML (Cmd+Shift+E)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+
+      <!-- Segmented Mode Control [ Edit | Split | Read ] -->
+      <div class="segmented-control" id="view-switcher">
+        <button class="segment active" data-mode="edit" title="Edit Mode (Cmd+1)">Edit</button>
+        <button class="segment" data-mode="split" title="Split Mode (Cmd+2)">Split</button>
+        <button class="segment" data-mode="read" title="Read Mode (Cmd+3)">Read</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- External File Modified Toast Notification -->
+  <div class="toast" id="toast" style="display: none;">
+    <div class="toast-content">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>File modified externally on disk.</span>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn primary" id="btn-reload-file">Reload</button>
+      <button class="toast-btn" id="btn-ignore-reload">Ignore</button>
+    </div>
+  </div>
+
+  <!-- Workspace Container -->
+  <main class="workspace mode-edit" id="workspace">
+    <!-- Editor Pane -->
+    <div class="pane editor-pane" id="editor-pane">
+      <div id="codemirror-editor" class="editor-container"></div>
+    </div>
+
+    <!-- Divider -->
+    <div class="pane-divider" id="pane-divider"></div>
+
+    <!-- Preview Pane -->
+    <div class="pane preview-pane" id="preview-pane">
+      <div class="preview-container markdown-body" id="preview-content"></div>
+    </div>
+  </main>
+
+  <!-- Status Bar (24px) -->
+  <footer class="statusbar" id="statusbar">
+    <div class="status-section left">
+      <span class="status-item" id="stat-words">0 words</span>
+      <span class="status-dot">•</span>
+      <span class="status-item" id="stat-chars">0 characters</span>
+      <span class="status-dot">•</span>
+      <span class="status-item" id="stat-reading">0 min read</span>
+    </div>
+    <div class="status-section right">
+      <span class="status-item">UTF-8</span>
+      <span class="status-dot">•</span>
+      <span class="status-item highlight">Markdown</span>
+      <button class="icon-btn-subtle" id="btn-toggle-statusbar" title="Toggle Status Bar (Cmd+/)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <script src="./src/main.js" type="module"></script>
+</body>
+</html>
