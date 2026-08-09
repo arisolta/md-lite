@@ -16,11 +16,12 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "MD Lite",
-		Width:  1100,
-		Height: 750,
-		MinWidth: 640,
-		MinHeight: 480,
+		Title:             "MD Lite",
+		Width:             1100,
+		Height:            750,
+		MinWidth:          640,
+		MinHeight:         480,
+		HideWindowOnClose: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -28,6 +29,10 @@ func main() {
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
+		},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId:               "com.mdlite.app",
+			OnSecondInstanceLaunch: app.handleSecondInstance,
 		},
 		Mac: &mac.Options{
 			TitleBar:             mac.TitleBarHiddenInset(),
@@ -38,6 +43,7 @@ func main() {
 				Title:   "MD Lite",
 				Message: "A lightweight, high-performance Markdown editor and reader for macOS.",
 			},
+			OnFileOpen: app.handleOpenFile,
 		},
 	})
 

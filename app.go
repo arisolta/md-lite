@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -69,23 +70,80 @@ func NewApp() *App {
 
 // startup is called when the app starts.
 func (a *App) startup(ctx context.Context) {
+	a.mu.Lock()
 	a.ctx = ctx
+	activePath := a.activePath
+	a.mu.Unlock()
 
-	// Check if a file path was passed via CLI arguments
-	if len(os.Args) > 1 {
+	// Check if a file path was passed via CLI arguments if activePath isn't already set by OnFileOpen
+	if activePath == "" && len(os.Args) > 1 {
 		argPath := os.Args[1]
 		if strings.HasSuffix(argPath, ".md") || strings.HasSuffix(argPath, ".markdown") || strings.HasSuffix(argPath, ".txt") {
-			if _, err := os.Stat(argPath); err == nil {
-				a.activePath = argPath
+			if abs, err := filepath.Abs(argPath); err == nil {
+				if _, err := os.Stat(abs); err == nil {
+					a.mu.Lock()
+					a.activePath = abs
+					a.mu.Unlock()
+				}
 			}
+		}
+	}
+}
+
+// handleOpenFile is called by Wails (Mac.OnFileOpen) when a file is opened via macOS Finder / open command
+func (a *App) handleOpenFile(filePath string) {
+	if filePath == "" {
+		return
+	}
+
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		absPath = filePath
+	}
+
+	a.mu.Lock()
+	a.activePath = absPath
+	ctx := a.ctx
+	a.mu.Unlock()
+
+	if ctx != nil {
+		runtime.WindowShow(ctx)
+		runtime.WindowUnminimise(ctx)
+
+		payload, err := a.ReadFileAtPath(absPath)
+		if err == nil && payload != nil {
+			runtime.EventsEmit(ctx, "open-file-payload", payload)
+		}
+	}
+}
+
+// handleSecondInstance handles command line args when launched while another instance is running
+func (a *App) handleSecondInstance(secondInstanceData options.SecondInstanceData) {
+	if len(secondInstanceData.Args) > 1 {
+		filePath := secondInstanceData.Args[1]
+		if !filepath.IsAbs(filePath) {
+			filePath = filepath.Join(secondInstanceData.WorkingDirectory, filePath)
+		}
+		a.handleOpenFile(filePath)
+	} else {
+		a.mu.Lock()
+		ctx := a.ctx
+		a.mu.Unlock()
+		if ctx != nil {
+			runtime.WindowShow(ctx)
+			runtime.WindowUnminimise(ctx)
 		}
 	}
 }
 
 // GetInitialFile loads CLI file if provided on startup
 func (a *App) GetInitialFile() (*FilePayload, error) {
-	if a.activePath != "" {
-		return a.ReadFileAtPath(a.activePath)
+	a.mu.Lock()
+	path := a.activePath
+	a.mu.Unlock()
+
+	if path != "" {
+		return a.ReadFileAtPath(path)
 	}
 	return nil, nil
 }

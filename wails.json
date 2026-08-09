@@ -9,5 +9,31 @@
   "author": {
     "name": "arisolta",
     "email": "90561629+arisolta@users.noreply.github.com"
+  },
+  "info": {
+    "productName": "MD Lite",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright 2026",
+    "comments": "A lightweight Markdown editor and reader for macOS.",
+    "fileAssociations": [
+      {
+        "ext": "md",
+        "name": "Markdown Document",
+        "iconName": "appicon",
+        "role": "Editor"
+      },
+      {
+        "ext": "markdown",
+        "name": "Markdown Document",
+        "iconName": "appicon",
+        "role": "Editor"
+      },
+      {
+        "ext": "txt",
+        "name": "Text Document",
+        "iconName": "appicon",
+        "role": "Editor"
+      }
+    ]
   }
 }

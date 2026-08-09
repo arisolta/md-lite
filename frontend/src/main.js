@@ -202,6 +202,11 @@ function loadFilePayload(payload) {
   isDirty = false;
   updateTitleBadge();
   toastEl.style.display = "none";
+
+  if (payload.path) {
+    localStorage.setItem("mdlite_draft_content", payload.content);
+    localStorage.setItem("mdlite_draft_path", payload.path);
+  }
 }
 
 // Restore Draft from Local Storage
@@ -431,6 +436,12 @@ function setupWailsEvents() {
       if (payload) {
         loadFilePayload(payload);
       }
+    }
+  });
+
+  EventsOn("open-file-payload", (payload) => {
+    if (payload && payload.path) {
+      loadFilePayload(payload);
     }
   });
 }
