@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,12 +39,13 @@ type FileStats struct {
 
 // App struct
 type App struct {
-	ctx        context.Context
-	mu         sync.Mutex
-	activePath string
-	watcher    *fsnotify.Watcher
-	isSaving   bool
-	mdParser   goldmark.Markdown
+	ctx         context.Context
+	mu          sync.Mutex
+	activePath  string
+	pendingFile *FilePayload
+	watcher     *fsnotify.Watcher
+	isSaving    bool
+	mdParser    goldmark.Markdown
 }
 
 // NewApp creates a new App application struct
@@ -68,6 +70,38 @@ func NewApp() *App {
 	}
 }
 
+// cleanFilePath parses file URLs, URL-encodings, and validates file paths
+func cleanFilePath(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.HasPrefix(raw, "-") {
+		return ""
+	}
+
+	if strings.HasPrefix(raw, "file://") {
+		u, err := url.Parse(raw)
+		if err == nil {
+			raw = u.Path
+		} else {
+			raw = strings.TrimPrefix(raw, "file://")
+		}
+	}
+
+	if unescaped, err := url.PathUnescape(raw); err == nil {
+		raw = unescaped
+	}
+
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		abs = raw
+	}
+
+	if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+		return abs
+	}
+
+	return ""
+}
+
 // startup is called when the app starts.
 func (a *App) startup(ctx context.Context) {
 	a.mu.Lock()
@@ -77,14 +111,12 @@ func (a *App) startup(ctx context.Context) {
 
 	// Check if a file path was passed via CLI arguments if activePath isn't already set by OnFileOpen
 	if activePath == "" && len(os.Args) > 1 {
-		argPath := os.Args[1]
-		if strings.HasSuffix(argPath, ".md") || strings.HasSuffix(argPath, ".markdown") || strings.HasSuffix(argPath, ".txt") {
-			if abs, err := filepath.Abs(argPath); err == nil {
-				if _, err := os.Stat(abs); err == nil {
-					a.mu.Lock()
-					a.activePath = abs
-					a.mu.Unlock()
-				}
+		for _, argPath := range os.Args[1:] {
+			if cleaned := cleanFilePath(argPath); cleaned != "" {
+				a.mu.Lock()
+				a.activePath = cleaned
+				a.mu.Unlock()
+				break
 			}
 		}
 	}
@@ -92,47 +124,52 @@ func (a *App) startup(ctx context.Context) {
 
 // handleOpenFile is called by Wails (Mac.OnFileOpen) when a file is opened via macOS Finder / open command
 func (a *App) handleOpenFile(filePath string) {
-	if filePath == "" {
+	cleaned := cleanFilePath(filePath)
+	if cleaned == "" {
 		return
 	}
 
-	absPath, err := filepath.Abs(filePath)
+	payload, err := a.ReadFileAtPath(cleaned)
 	if err != nil {
-		absPath = filePath
+		return
 	}
 
 	a.mu.Lock()
-	a.activePath = absPath
+	a.activePath = cleaned
+	a.pendingFile = payload
 	ctx := a.ctx
 	a.mu.Unlock()
 
 	if ctx != nil {
 		runtime.WindowShow(ctx)
 		runtime.WindowUnminimise(ctx)
-
-		payload, err := a.ReadFileAtPath(absPath)
-		if err == nil && payload != nil {
-			runtime.EventsEmit(ctx, "open-file-payload", payload)
-		}
+		runtime.EventsEmit(ctx, "open-file-payload", payload)
 	}
 }
 
 // handleSecondInstance handles command line args when launched while another instance is running
 func (a *App) handleSecondInstance(secondInstanceData options.SecondInstanceData) {
-	if len(secondInstanceData.Args) > 1 {
-		filePath := secondInstanceData.Args[1]
-		if !filepath.IsAbs(filePath) {
-			filePath = filepath.Join(secondInstanceData.WorkingDirectory, filePath)
+	var foundFile string
+	for _, arg := range secondInstanceData.Args[1:] {
+		target := arg
+		if !filepath.IsAbs(target) && !strings.HasPrefix(target, "file://") {
+			target = filepath.Join(secondInstanceData.WorkingDirectory, target)
 		}
-		a.handleOpenFile(filePath)
-	} else {
-		a.mu.Lock()
-		ctx := a.ctx
-		a.mu.Unlock()
-		if ctx != nil {
-			runtime.WindowShow(ctx)
-			runtime.WindowUnminimise(ctx)
+		if cleaned := cleanFilePath(target); cleaned != "" {
+			foundFile = cleaned
+			break
 		}
+	}
+
+	a.mu.Lock()
+	ctx := a.ctx
+	a.mu.Unlock()
+
+	if foundFile != "" {
+		a.handleOpenFile(foundFile)
+	} else if ctx != nil {
+		runtime.WindowShow(ctx)
+		runtime.WindowUnminimise(ctx)
 	}
 }
 
@@ -146,6 +183,16 @@ func (a *App) GetInitialFile() (*FilePayload, error) {
 		return a.ReadFileAtPath(path)
 	}
 	return nil, nil
+}
+
+// GetPendingFile returns and clears any file waiting to be loaded (pull model for reliability)
+func (a *App) GetPendingFile() *FilePayload {
+	a.mu.Lock()
+	pending := a.pendingFile
+	a.pendingFile = nil
+	a.mu.Unlock()
+
+	return pending
 }
 
 // OpenFile triggers native macOS file picker dialog

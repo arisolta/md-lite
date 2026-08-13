@@ -14,6 +14,10 @@ export function GetInitialFile() {
   return window['go']['main']['App']['GetInitialFile']();
 }
 
+export function GetPendingFile() {
+  return window['go']['main']['App']['GetPendingFile']();
+}
+
 export function OpenFile() {
   return window['go']['main']['App']['OpenFile']();
 }

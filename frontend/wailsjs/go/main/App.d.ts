@@ -8,6 +8,8 @@ export function GetFileStats(arg1:string):Promise<main.FileStats>;
 
 export function GetInitialFile():Promise<main.FilePayload>;
 
+export function GetPendingFile():Promise<main.FilePayload>;
+
 export function OpenFile():Promise<main.FilePayload>;
 
 export function ReadFileAtPath(arg1:string):Promise<main.FilePayload>;
