@@ -1,6 +1,6 @@
 # MD Lite
 
-> **MD Lite** is a lightweight, high-performance Markdown editor and reader designed natively for macOS. It strips away complex multi-file project trees and heavy plugin ecosystems in favor of an instant, distraction-free writing environment.
+> **MD Lite** is a lightweight, high-performance **Markdown editor** and reader designed natively for macOS. It strips away complex multi-file project trees and heavy plugin ecosystems in favor of an instant, distraction-free writing environment.
 
 ---
 
@@ -9,10 +9,9 @@
 - ⚡ **Sub-Second Startup:** Launches instantly with a lightweight footprint (<40 MB RAM at idle; binary under 20 MB).
 - 🍏 **Mac-Native Aesthetic:** Designed around Apple Human Interface Guidelines (HIG) featuring dark/light mode auto-detection, SF typography, glassmorphism translucent title bar & status bar (`backdrop-filter: blur(20px)`).
 - 📝 **CodeMirror 6 Editor Engine:** Clean Markdown editing experience with syntax highlighting, line numbers, and smart auto-closing bracket pairs.
-- 👁️ **Three View Modes (`Cmd+1` / `Cmd+2` / `Cmd+3`):**
-  - **Edit Mode:** Centered 780px column editor.
-  - **Split Mode:** Dual-pane 50/50 view with independent mouse-hover scrolling per pane.
-  - **Read Mode:** Clean, distraction-free HTML view.
+- 👁️ **Two Distraction-Free Modes (`Cmd+1` / `Cmd+2` or `Cmd+E` / `Cmd+P`):**
+  - **Edit Mode:** Focused, centered 780px column editor.
+  - **Read Mode:** Clean, typography-first rendered HTML view.
 - 🚀 **Progressive Preview Loading:** Handles massive Markdown files (>750 KB) without UI lag via instant 50 KB chunking and on-demand pagination controls.
 - 🛡️ **Atomic Disk Writes:** Writes to temporary `.tmp` buffers prior to atomic replacement, guaranteeing data integrity.
 - 🔄 **External File Watching:** Listens for disk changes via `fsnotify` and alerts the user with translucent macOS notification toasts.
@@ -120,9 +119,13 @@ wails dev
 | `Cmd + O` | Open File (Triggers Native macOS Open Dialog) |
 | `Cmd + S` | Force Save Document |
 | `Cmd + Shift + S` | Save As... |
+| `Cmd + B` | Bold Selection / Wrap `**` |
+| `Cmd + I` | Italic Selection / Wrap `*` |
+| `Cmd + K` | Insert Link / Wrap `[text](url)` |
+| `Cmd + Shift + X` | Strikethrough Selection / Wrap `~~` |
 | `Cmd + 1` | Switch to Edit Mode |
-| `Cmd + 2` | Switch to Split View |
-| `Cmd + 3` | Switch to Read Mode |
+| `Cmd + 2` | Switch to Read Mode |
+| `Cmd + E` / `Cmd + P` | Toggle Between Edit and Read Mode |
 | `Cmd + Shift + E` | Export to HTML |
 | `Cmd + /` | Toggle Status Bar Visibility |
 

@@ -120,6 +120,13 @@ func (a *App) startup(ctx context.Context) {
 			}
 		}
 	}
+
+	// Handle native macOS file drops onto the application window
+	runtime.OnFileDrop(ctx, func(x, y int, paths []string) {
+		if len(paths) > 0 {
+			a.handleOpenFile(paths[0])
+		}
+	})
 }
 
 // handleOpenFile is called by Wails (Mac.OnFileOpen) when a file is opened via macOS Finder / open command

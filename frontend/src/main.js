@@ -1,8 +1,9 @@
 import { EditorView, keymap, highlightActiveLine, lineNumbers, drawSelection } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
-import { markdown } from "@codemirror/lang-markdown";
+import { EditorState, EditorSelection } from "@codemirror/state";
+import { markdown, markdownKeymap } from "@codemirror/lang-markdown";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { marked } from "marked";
 
 // Wails bindings
@@ -17,24 +18,100 @@ import {
   GetPendingFile
 } from "../wailsjs/go/main/App.js";
 
-import { EventsOn } from "../wailsjs/runtime/runtime.js";
+import { EventsOn, BrowserOpenURL } from "../wailsjs/runtime/runtime.js";
 
-// Configure marked with GFM support
+// Configure marked with GFM support and interactive task checkboxes
 marked.setOptions({
   gfm: true,
   breaks: true,
 });
+
+marked.use({
+  renderer: {
+    checkbox({ checked }) {
+      return `<input type="checkbox"${checked ? " checked" : ""} class="task-checkbox"> `;
+    },
+  },
+});
+
+// Markdown formatting command helpers (Cmd+B, Cmd+I, Cmd+K, Cmd+Shift+X)
+function toggleWrapCommand(prefix, suffix) {
+  return (view) => {
+    const changes = [];
+    const newSelections = [];
+    for (const range of view.state.selection.ranges) {
+      if (range.empty) {
+        changes.push({ from: range.from, insert: prefix + suffix });
+        newSelections.push(EditorSelection.cursor(range.from + prefix.length));
+      } else {
+        const text = view.state.sliceDoc(range.from, range.to);
+        const pLen = prefix.length;
+        const sLen = suffix.length;
+        if (text.startsWith(prefix) && text.endsWith(suffix) && text.length >= pLen + sLen) {
+          const unwrapped = text.slice(pLen, text.length - sLen);
+          changes.push({ from: range.from, to: range.to, insert: unwrapped });
+          newSelections.push(EditorSelection.range(range.from, range.from + unwrapped.length));
+        } else {
+          const before = view.state.sliceDoc(Math.max(0, range.from - pLen), range.from);
+          const after = view.state.sliceDoc(range.to, Math.min(view.state.doc.length, range.to + sLen));
+          if (before === prefix && after === suffix) {
+            changes.push({ from: range.from - pLen, to: range.from, insert: "" });
+            changes.push({ from: range.to, to: range.to + sLen, insert: "" });
+            newSelections.push(EditorSelection.range(range.from - pLen, range.to - pLen));
+          } else {
+            changes.push({ from: range.from, to: range.to, insert: prefix + text + suffix });
+            newSelections.push(EditorSelection.range(range.from + pLen, range.to + pLen));
+          }
+        }
+      }
+    }
+    view.dispatch({
+      changes,
+      selection: EditorSelection.create(newSelections),
+      scrollIntoView: true,
+      userEvent: "input.format",
+    });
+    return true;
+  };
+}
+
+function insertLinkCommand(view) {
+  const changes = [];
+  const newSelections = [];
+  for (const range of view.state.selection.ranges) {
+    if (range.empty) {
+      changes.push({ from: range.from, insert: "[](url)" });
+      newSelections.push(EditorSelection.cursor(range.from + 1));
+    } else {
+      const text = view.state.sliceDoc(range.from, range.to);
+      changes.push({ from: range.from, to: range.to, insert: `[${text}](url)` });
+      newSelections.push(EditorSelection.range(range.from + text.length + 3, range.from + text.length + 6));
+    }
+  }
+  view.dispatch({
+    changes,
+    selection: EditorSelection.create(newSelections),
+    scrollIntoView: true,
+    userEvent: "input.format",
+  });
+  return true;
+}
+
+const markdownFormattingKeymap = [
+  { key: "Mod-b", run: toggleWrapCommand("**", "**") },
+  { key: "Mod-i", run: toggleWrapCommand("*", "*") },
+  { key: "Mod-k", run: insertLinkCommand },
+  { key: "Mod-Shift-x", run: toggleWrapCommand("~~", "~~") },
+];
 
 // App State
 let currentFilePath = "";
 let currentFileName = "Untitled.md";
 let isDirty = false;
 let autoSaveTimer = null;
-let currentMode = "edit"; // edit | split | read
+let currentMode = "edit"; // edit | read
 let editorView = null;
 let pendingExternalPath = null;
-let isScrollingFromEditor = false;
-let isScrollingFromPreview = false;
 
 // DOM Elements
 const docNameEl = document.getElementById("doc-name");
@@ -66,7 +143,7 @@ async function initApp() {
   initCodeMirror();
   setupEventListeners();
   setupKeyboardShortcuts();
-  setupSynchronizedScrolling();
+  setupDragAndDrop();
   setupWailsEvents();
 
   // Wait for Wails runtime to be ready, then check for initial file
@@ -137,8 +214,16 @@ function initCodeMirror() {
       drawSelection(),
       history(),
       markdown(),
+      closeBrackets(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      keymap.of([
+        ...markdownFormattingKeymap,
+        ...markdownKeymap,
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...historyKeymap,
+        indentWithTab,
+      ]),
       updateListener,
       EditorView.lineWrapping,
     ],
@@ -248,8 +333,8 @@ let previewChunkMultiplier = 1;
 function updatePreviewAndStats() {
   const rawText = getEditorText();
 
-  // Only render markdown preview when the preview pane is visible (split or read mode)
-  if (currentMode === "split" || currentMode === "read") {
+  // Only render markdown preview when in read mode
+  if (currentMode === "read") {
     let textToRender = rawText;
     let truncated = false;
     const currentLimit = PREVIEW_LIMIT * previewChunkMultiplier;
@@ -323,7 +408,7 @@ function loadDraftFromStorage() {
   updateTitleBadge();
 }
 
-// View Mode Switching [ Edit | Split | Read ]
+// View Mode Switching [ Edit | Read ]
 function setViewMode(mode) {
   currentMode = mode;
   workspaceEl.className = `workspace mode-${mode}`;
@@ -333,20 +418,11 @@ function setViewMode(mode) {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
 
-  if (mode === "read" || mode === "split") {
-    // Update stats immediately (fast), preview rendering handled by updatePreviewAndStats
+  if (mode === "read") {
     updatePreviewAndStats();
-  }
-
-  // Focus editor when switching back to edit or split mode
-  if ((mode === "edit" || mode === "split") && editorView) {
+  } else if (mode === "edit" && editorView) {
     editorView.focus();
   }
-}
-
-// Independent Pane Scrolling (Scrolling is based on cursor / focus location)
-function setupSynchronizedScrolling() {
-  // Panes scroll independently based on mouse/cursor position
 }
 
 // UI Event Listeners
@@ -391,6 +467,112 @@ function setupEventListeners() {
     } else if (allBtn) {
       previewChunkMultiplier = Infinity;
       updatePreviewAndStats();
+    }
+  });
+
+  // Interactive Task List Checkbox Toggling
+  previewContent.addEventListener("change", (e) => {
+    const checkbox = e.target.closest(".task-checkbox");
+    if (!checkbox) return;
+
+    const allCheckboxes = Array.from(previewContent.querySelectorAll(".task-checkbox"));
+    const index = allCheckboxes.indexOf(checkbox);
+    if (index === -1) return;
+
+    toggleTaskCheckboxInDoc(index, checkbox.checked);
+  });
+
+  // Safe External Link Navigation (opens in default macOS browser)
+  previewContent.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if (!link) return;
+    const href = link.getAttribute("href");
+    if (!href) return;
+
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:")) {
+      e.preventDefault();
+      BrowserOpenURL(href);
+    } else if (href.startsWith("#")) {
+      e.preventDefault();
+      const id = href.slice(1);
+      const targetEl = previewContent.querySelector(`[id="${CSS.escape(id)}"]`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  });
+}
+
+// Toggle task checkbox in the Markdown document source and auto-save
+function toggleTaskCheckboxInDoc(targetIndex, isChecked) {
+  if (!editorView) return;
+  const text = editorView.state.doc.toString();
+  const regex = /^([ \t]*[-*+]\s+\[)([ xX])(\])/gm;
+  let match;
+  let currentIndex = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (currentIndex === targetIndex) {
+      const charPos = match.index + match[1].length;
+      const newChar = isChecked ? "x" : " ";
+      editorView.dispatch({
+        changes: { from: charPos, to: charPos + 1, insert: newChar },
+        userEvent: "input.checkbox",
+      });
+      break;
+    }
+    currentIndex++;
+  }
+}
+
+// Setup Drag & Drop file opening with visual overlay
+function setupDragAndDrop() {
+  let dragCounter = 0;
+
+  window.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    dragCounter++;
+    document.body.classList.add("dragging-file");
+  });
+
+  window.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      document.body.classList.remove("dragging-file");
+    }
+  });
+
+  window.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+
+  window.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    document.body.classList.remove("dragging-file");
+
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.path) {
+        const payload = await ReadFileAtPath(file.path).catch(() => null);
+        if (payload) {
+          loadFilePayload(payload);
+          return;
+        }
+      }
+
+      if (file.name.endsWith(".md") || file.name.endsWith(".markdown") || file.name.endsWith(".txt")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          loadFilePayload({
+            path: "",
+            name: file.name,
+            content: reader.result,
+          });
+        };
+        reader.readAsText(file);
+      }
     }
   });
 }
@@ -491,14 +673,17 @@ function setupKeyboardShortcuts() {
       setViewMode("edit");
     } else if (e.key === "2") {
       e.preventDefault();
-      setViewMode("split");
-    } else if (e.key === "3") {
-      e.preventDefault();
       setViewMode("read");
+    } else if (e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      setViewMode(currentMode === "edit" ? "read" : "edit");
     } else if (e.key === "e" || e.key === "E") {
       if (e.shiftKey) {
         e.preventDefault();
         handleExportHTML();
+      } else {
+        e.preventDefault();
+        setViewMode(currentMode === "edit" ? "read" : "edit");
       }
     } else if (e.key === "/") {
       e.preventDefault();

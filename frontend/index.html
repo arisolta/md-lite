@@ -36,11 +36,10 @@
         </button>
       </div>
 
-      <!-- Segmented Mode Control [ Edit | Split | Read ] -->
+      <!-- Segmented Mode Control [ Edit | Read ] -->
       <div class="segmented-control" id="view-switcher">
         <button class="segment active" data-mode="edit" title="Edit Mode (Cmd+1)">Edit</button>
-        <button class="segment" data-mode="split" title="Split Mode (Cmd+2)">Split</button>
-        <button class="segment" data-mode="read" title="Read Mode (Cmd+3)">Read</button>
+        <button class="segment" data-mode="read" title="Read Mode (Cmd+2)">Read</button>
       </div>
     </div>
   </header>
@@ -63,9 +62,6 @@
     <div class="pane editor-pane" id="editor-pane">
       <div id="codemirror-editor" class="editor-container"></div>
     </div>
-
-    <!-- Divider -->
-    <div class="pane-divider" id="pane-divider"></div>
 
     <!-- Preview Pane -->
     <div class="pane preview-pane" id="preview-pane">
@@ -91,6 +87,14 @@
       </button>
     </div>
   </footer>
+
+  <!-- Drag & Drop Overlay -->
+  <div class="drop-overlay" id="drop-overlay">
+    <div class="drop-content">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+      <span>Drop Markdown file to open</span>
+    </div>
+  </div>
 
   <script src="./src/main.js" type="module"></script>
 </body>

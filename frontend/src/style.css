@@ -301,33 +301,12 @@ body.mac-app {
   justify-content: center;
 }
 
-.workspace.mode-edit .pane-divider,
 .workspace.mode-edit .preview-pane {
   display: none;
 }
 
-/* Mode 2: Split Mode */
-.workspace.mode-split .editor-pane {
-  flex: 1;
-  width: 50%;
-}
-
-.workspace.mode-split .pane-divider {
-  width: 1px;
-  min-width: 1px;
-  background-color: var(--divider);
-  height: 100%;
-}
-
-.workspace.mode-split .preview-pane {
-  flex: 1;
-  width: 50%;
-  display: block;
-}
-
-/* Mode 3: Read Mode */
-.workspace.mode-read .editor-pane,
-.workspace.mode-read .pane-divider {
+/* Mode 2: Read Mode */
+.workspace.mode-read .editor-pane {
   display: none;
 }
 
@@ -667,4 +646,49 @@ body.mac-app {
 
 .truncation-btn.primary:hover {
   background: var(--accent-hover);
+}
+
+/* Drag and Drop Overlay */
+.drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 2px dashed var(--accent);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+body.dragging-file .drop-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drop-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Interactive Task Checkboxes */
+.markdown-body .task-checkbox {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  accent-color: var(--accent);
+  vertical-align: middle;
 }

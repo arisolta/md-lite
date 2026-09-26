@@ -34,6 +34,10 @@ func main() {
 			UniqueId:               "com.mdlite.app",
 			OnSecondInstanceLaunch: app.handleSecondInstance,
 		},
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop:     true,
+			DisableWebViewDrop: false,
+		},
 		Mac: &mac.Options{
 			TitleBar:             mac.TitleBarHiddenInset(),
 			Appearance:           mac.NSAppearanceNameDarkAqua,
